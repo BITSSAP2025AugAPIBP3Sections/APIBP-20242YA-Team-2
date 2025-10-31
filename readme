@@ -1,0 +1,139 @@
+# Campus Connect: Scalable University Event Platform
+
+Campus Connect is a real-time, event-driven application designed to revolutionize student engagement by centralizing event discovery, RSVP, and notification across a university campus.
+
+This project showcases a professional **Microservices Architecture (MSA)** built to be resilient, highly scalable, and API-flexible, fulfilling mandatory requirements for RESTful APIs and GraphQL composition.
+
+## 1. Project Overview and Value
+
+Campus Connect solves the common campus problem of information fragmentation by replacing fragmented communication (emails, bulletin boards) with a single, reliable hub.
+
+### Key Architectural Principles
+
+- **Decentralized Data Management**: Each microservice (MS) owns its dedicated data store (PostgreSQL, MongoDB, Redis).
+- **Asynchronous Communication**: Services are decoupled via Apache Kafka, preventing cascading failures.
+- **API Composition**: A central GraphQL Gateway aggregates data from the underlying REST services, allowing the frontend to fetch complex dashboards (like My Events + Recommendations) in a single, efficient network request.
+
+## 2. Microservices Architecture Summary
+
+The backend is composed of five specialized Node.js services, each responsible for a distinct business domain.
+
+| Service Name | Primary Function | Data Stores | API Type |
+|--------------|------------------|-------------|----------|
+| **User & Social Service (USS)** | Identity Authority. Handles user accounts, authentication, and the social graph (followers). | PostgreSQL | REST |
+| **Event Management Service (EMS)** | Event Authority. Handles event CRUD and RSVP transactional integrity. | PostgreSQL | REST |
+| **Real-time Notification Service (RNS)** | Delivery Authority. Consumes events from Kafka and pushes instant alerts. | Redis, PostgreSQL | WS / REST |
+| **Discovery & Recommendation Service (DRS)** | Intelligence Layer. Ingests behavior data to calculate and cache personalized recommendations. | MongoDB, Redis | REST |
+| **GraphQL Gateway** | API Facade. Single entry point that orchestrates calls between USS, EMS, and DRS. | None | GraphQL |
+
+## 3. Core Features and Scalability Proof Points
+
+### A. Event-Driven Real-Time Updates
+
+**Mechanism**: When the EMS creates an event, it publishes an `event_created` event to Kafka. The RNS instantly consumes this event, calls the USS to retrieve the list of followers, and pushes a notification to each connected user via WebSockets.
+
+**Proof Point**: The RNS demonstrates high fan-out capability and low-latency delivery.
+
+### B. Guaranteed Delivery Pipeline
+
+**Mechanism**: The RNS uses a **Dual Write Strategy**. When a notification is generated, it is ALWAYS persisted to a PostgreSQL table first, regardless of the user's online status. If the WebSocket push fails, the message is marked undelivered (`is_delivered: false`).
+
+**Proof Point**: Ensures zero message loss. Offline messages are retrieved via the HTTP endpoint (`/notifications/{id}`) upon the user's next login.
+
+### C. GraphQL Composition and Efficiency
+
+**Mechanism**: The frontend uses a single GraphQL query (e.g., for the Event Detail Page). The Gateway resolves this by executing parallel REST calls: one to the EMS for event metadata and a nested call to the USS for the host's profile.
+
+**Proof Point**: Resolves the N+1 problem and reduces network overhead, proving the system is optimized for fast frontend performance.
+
+### D. Data Optimization (DRS)
+
+**Mechanism**: The DRS consumes user activity into a MongoDB UserProfile. This data is processed by a background worker and cached into Redis.
+
+**Proof Point**: Separates heavy computational load (recommendation scoring) from the core transactional services, improving system stability.
+
+## 4. Technology Stack
+
+| Layer | Key Technologies |
+|-------|------------------|
+| **Messaging** | Apache Kafka (Event Backbone) |
+| **API** | Node.js (Express), Apollo Server (GraphQL) |
+| **Persistence** | PostgreSQL, MongoDB, Redis |
+| **Deployment** | Kubernetes, Docker |
+
+
+
+<!-- 
+## 🚀 Local Deployment and Testing
+
+The project is deployed using **Kubernetes (K8s)** and **Docker**. For local development, network tunneling is required to connect the frontend to the backend services running in the cluster.
+
+### Key Internal Dependencies and Ports
+
+| Component | Port | Local Tunnel Command |
+|-----------|------|---------------------|
+| **PostgreSQL (EMS/USS)** | 5432 | `kubectl port-forward svc/<db-service> 5432:5432 -n campus-connect` |
+| **Redis Cache** | 6379 | `kubectl port-forward svc/redis-cache 6379:6379 -n campus-connect` |
+| **Kafka Cluster** | 9092/9094 | `kubectl port-forward svc/campus-kafka-cluster-kafka-bootstrap 9094:9092 -n kafka` |
+
+## 🛠️ Prerequisites
+
+- Node.js 16+
+- Docker Desktop
+- Kubernetes (kubectl)
+- Apache Kafka
+
+## 📦 Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/campus-connect.git
+cd campus-connect
+```
+
+2. Set up Kubernetes cluster and deploy services:
+```bash
+kubectl apply -f y/
+```
+
+3. Start port forwarding for development:
+```bash
+# Terminal 1 - PostgreSQL
+kubectl port-forward svc/postgres-service 5432:5432 -n campus-connect
+
+# Terminal 2 - Redis
+kubectl port-forward svc/redis-cache 6379:6379 -n campus-connect
+
+# Terminal 3 - Kafka
+kubectl port-forward svc/campus-kafka-cluster-kafka-bootstrap 9094:9092 -n kafka
+```
+
+## 🔌 API Endpoints
+
+### GraphQL Gateway
+- **URL**: `http://localhost:4000/graphql`
+- **GraphQL Playground**: Available in development mode
+
+### REST Services
+- **User & Social Service**: `http://localhost:3000`
+- **Event Management Service**: `http://localhost:3001`
+- **Real-time Notification Service**: `http://localhost:3002`
+- **Discovery & Recommendation Service**: `http://localhost:3003`
+
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 👥 Team
+
+**Team 2 - APIBP 2024**
+
+### Authors
+- **Preeti Kumari**
+- **Vipul Gaikwad** 
+- **Anoop Pande**
+
+---
+
+**Note**: This is an academic project demonstrating microservices architecture patterns and event-driven design principles. -->
