@@ -16,6 +16,8 @@
     "pg-hstore": "^2.3.4",
     "redis": "^4.6.13",
     "sequelize": "^6.37.7",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "ws": "^8.16.0"
   },
   "scripts": {
