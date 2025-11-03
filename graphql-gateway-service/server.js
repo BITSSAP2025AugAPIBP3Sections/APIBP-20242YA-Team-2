@@ -3,6 +3,8 @@ const { expressMiddleware } = require("@apollo/server/express4");
 const express = require("express");
 const axios = require("axios");
 const gql = require("graphql-tag");
+const swaggerJsdoc = require("swagger-jsdoc");
+const swaggerUi = require("swagger-ui-express");
 
 
 // --- CONFIGURATION (Internal Service Addresses) ---
@@ -209,6 +211,247 @@ const server = new ApolloServer({ typeDefs, resolvers });
 const app = express();
 const PORT = 3004;
 
+
+// --- Swagger/OpenAPI setup (for operational REST endpoints) ---
+const swaggerSpec = swaggerJsdoc({
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "GraphQL Gateway Service API",
+      version: "1.0.0",
+      description:
+        "Gateway microservice exposing a GraphQL endpoint at /graphql. This OpenAPI spec documents operational REST endpoints (e.g. health).",
+    },
+    servers: [{ url: "http://localhost:3004" }],
+  },
+  apis: ["./server.js"],
+});
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     GraphQLRequest:
+ *       type: object
+ *       required: [query]
+ *       properties:
+ *         query:
+ *           type: string
+ *           description: GraphQL query or mutation string
+ *           example: |
+ *             query GetEvent($id: ID!) {
+ *               event(id: $id) {
+ *                 id
+ *                 title
+ *                 description
+ *                 location
+ *                 dateTime
+ *                 attendeesCount
+ *                 host { id username isOrganization }
+ *               }
+ *             }
+ *         variables:
+ *           type: object
+ *           additionalProperties: true
+ *           nullable: true
+ *           example: { "id": "123" }
+ *         operationName:
+ *           type: string
+ *           nullable: true
+ *           example: GetEvent
+ *     GraphQLErrorLocation:
+ *       type: object
+ *       properties:
+ *         line:
+ *           type: integer
+ *         column:
+ *           type: integer
+ *     GraphQLError:
+ *       type: object
+ *       properties:
+ *         message:
+ *           type: string
+ *         locations:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/GraphQLErrorLocation'
+ *         path:
+ *           type: array
+ *           items:
+ *             oneOf:
+ *               - type: string
+ *               - type: integer
+ *     GraphQLResponse:
+ *       type: object
+ *       properties:
+ *         data:
+ *           type: object
+ *           nullable: true
+ *           description: GraphQL response data following the schema for queried fields
+ *           example:
+ *             event: { id: "123", title: "Hackathon", attendeesCount: 42 }
+ *         errors:
+ *           type: array
+ *           nullable: true
+ *           items:
+ *             $ref: '#/components/schemas/GraphQLError'
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         username:
+ *           type: string
+ *         isOrganization:
+ *           type: boolean
+ *     Event:
+ *       type: object
+ *       properties:
+ *         id: { type: string }
+ *         title: { type: string }
+ *         description: { type: string, nullable: true }
+ *         location: { type: string, nullable: true }
+ *         dateTime: { type: string }
+ *         attendeesCount: { type: integer }
+ *         host: { $ref: '#/components/schemas/User' }
+ */
+/**
+ * @openapi
+ * /graphql:
+ *   post:
+ *     summary: Execute a GraphQL operation
+ *     description: |
+ *       Send a GraphQL query or mutation. The GraphQL schema includes types `User`, `Event`, and root queries `event`, `user`, `trendingEvents`, `searchEvents`.
+ *
+ *       Example queries:
+ *
+ *       - Get event by ID:
+ *         
+ *         query GetEvent($id: ID!) {\n  event(id: $id) { id title description host { id username } }\n}
+ *
+ *       - Get user with recommendations:
+ *         
+ *         query GetUser($id: ID!) {\n  user(id: $id) { id username isOrganization recommendations { id title } }\n}
+ *     tags:
+ *       - GraphQL
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GraphQLRequest'
+ *           examples:
+ *             getEvent:
+ *               summary: Fetch a single event
+ *               value:
+ *                 query: |
+ *                   query GetEvent($id: ID!) {
+ *                     event(id: $id) {
+ *                       id
+ *                       title
+ *                       description
+ *                       host { id username }
+ *                     }
+ *                   }
+ *                 variables: { id: "123" }
+ *                 operationName: GetEvent
+ *             trending:
+ *               summary: Trending events
+ *               value:
+ *                 query: |
+ *                   query Trending {
+ *                     trendingEvents { id title attendeesCount }
+ *                   }
+ *     responses:
+ *       200:
+ *         description: GraphQL execution result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/GraphQLResponse'
+ *             examples:
+ *               success:
+ *                 summary: Successful response
+ *                 value:
+ *                   data:
+ *                     event:
+ *                       id: "123"
+ *                       title: "Hackathon"
+ *                       description: "24-hour coding event"
+ *                       host:
+ *                         id: "u1"
+ *                         username: "alice"
+ *               error:
+ *                 summary: Response with errors
+ *                 value:
+ *                   errors:
+ *                     - message: "Field 'evnt' not found on type 'Query'"
+ *                       locations: [{ line: 1, column: 8 }]
+  *       400:
+  *         description: Invalid GraphQL request (syntax error, missing query, or invalid variables)
+  *         content:
+  *           application/json:
+  *             schema:
+  *               $ref: '#/components/schemas/GraphQLResponse'
+  *             examples:
+  *               syntaxError:
+  *                 summary: GraphQL syntax error
+  *                 value:
+  *                   errors:
+  *                     - message: "Syntax Error: Expected Name, found '}'"
+  *                       locations: [{ line: 1, column: 20 }]
+  *               missingQuery:
+  *                 summary: Missing query field
+  *                 value:
+  *                   errors:
+  *                     - message: "Must provide query string."
+  *       500:
+  *         description: Internal server error while processing the GraphQL operation
+  *         content:
+  *           application/json:
+  *             schema:
+  *               $ref: '#/components/schemas/GraphQLResponse'
+  *             examples:
+  *               upstreamFailure:
+  *                 summary: Downstream service failed
+  *                 value:
+  *                   errors:
+  *                     - message: "Failed to fetch event with ID 123"
+ */
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     description: Returns service health status.
+ *     responses:
+ *       200:
+ *         description: Service is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+  *       503:
+  *         description: Service is not ready or unhealthy
+  *         content:
+  *           application/json:
+  *             schema:
+  *               type: object
+  *               properties:
+  *                 status:
+  *                   type: string
+  *                   example: unhealthy
+ */
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 async function startApolloServer() {
   await server.start();
   
@@ -219,8 +462,14 @@ async function startApolloServer() {
   );
 
   app.listen({ port: PORT }, () => {
-    console.log(`🚀 GraphQL Gateway Service ready at http://localhost:${PORT}/graphql`);
+    console.log(`GraphQL Gateway Service ready at http://localhost:${PORT}/graphql`);
   });
+  console.log(
+      `Swagger UI available at: http://localhost:3004/api-docs`
+    );
+    console.log(
+      `Health check available at: http://localhost:3004/health`
+    );
 }
 
 startApolloServer();
