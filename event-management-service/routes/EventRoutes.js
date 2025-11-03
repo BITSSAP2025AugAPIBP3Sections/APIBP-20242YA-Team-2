@@ -11,7 +11,11 @@ const { authenticate } = require("../middleware/auth"); // Import authentication
 // ----------------------------------------------------------------------
 
 // Search endpoint is public for general browsing
+
 router.get("/search", eventController.searchEvents);
+
+router.get("/attending", eventController.getEventsAttending);
+router.get("/created", eventController.getEventsCreated);
 
 router.get("/", eventController.getAllEvents);
 
@@ -28,20 +32,18 @@ router.use(authenticate); // All routes below this line require a JWT token
  * @route POST /events
  * @description Creates a new event (Authenticated User is the Host).
  */
-router.post("/", eventController.createEvent);
 
+router.post("/", eventController.createEvent);
 /**
  * @route PUT /events/:event_id
  * @description Updates an existing event. Authorization check happens *inside* the controller.
  */
 router.put("/:event_id", eventController.updateEvent);
-
 /**
  * @route DELETE /events/:event_id
  * @description Deletes an event. Authorization check happens *inside* the controller.
  */
 router.delete("/:event_id", eventController.deleteEventById);
-
 /**
  * @route POST /events/:event_id/rsvp
  * @description Records a user's participation in an event.
@@ -55,5 +57,9 @@ router.post("/:event_id/rsvp", eventController.rsvpToEvent);
  * @access Authenticated
  */
 router.delete("/:event_id/rsvp", eventController.cancelRsvp);
+
+
+router.get('/:event_id/rsvp-status', authenticate, eventController.checkRsvpStatus);
+
 
 module.exports = router;

@@ -1,31 +1,39 @@
+
 const { DataTypes } = require('sequelize');
 const sequelize = require('../utils/db');
 const Event = require('./Event'); 
 const UserStub = require('./UserStub');
+
 const EventParticipant = sequelize.define('EventParticipant', {
 
     event_id: {
         type: DataTypes.UUID,
-        references: {
+        references: { 
             model: Event,
             key: 'event_id'
         },
         primaryKey: true
     },
-    user_id: { // ID of the user who RSVP'd
+    
+    attendee_id: { 
         type: DataTypes.UUID,
-        // No DB foreign key constraint needed, as the User is in another MS
         primaryKey: true
+    },
+    
+    joined_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW
     }
 }, {
     tableName: 'event_participants',
-    timestamps: true, // Auto-manages createdAt and updatedAt
-    createdAt: 'joined_at', // Rename createdAt to joined_at for clarity
-    updatedAt: false // Participation records are usually only created, not updated
+    timestamps: false, 
+    createdAt: 'joined_at',
+    updatedAt: false,
+    timestamps: true
 });
 
-// Define association helpers (Optional, but useful for joins)
-Event.belongsToMany(UserStub, { through: EventParticipant, foreignKey: 'event_id' });
-UserStub.belongsToMany(Event, { through: EventParticipant, foreignKey: 'user_id' });
+Event.belongsToMany(UserStub, { through: EventParticipant, foreignKey: 'event_id', otherKey: 'attendee_id' });
+UserStub.belongsToMany(Event, { through: EventParticipant, foreignKey: 'attendee_id', otherKey: 'event_id' });
 
 module.exports = EventParticipant;
