@@ -6,7 +6,7 @@ metadata:
   labels:
     app: notification-service
 spec:
-  type: LoadBalancer 
+  type: LoadBalancer
   ports:
     - port: 80
       targetPort: 3002
@@ -32,33 +32,33 @@ spec:
         app: notification-service
     spec:
       containers:
-      - name: rns-app
-        image: vipul710/rns-service:latest 
-        ports:
-        - containerPort: 3002
-        env:
-        # --- DB CONFIG (Offline Notifications) ---
-        - name: DB_HOST
-          value: "postgres-rns-service" # K8s Service Name
-        - name: DB_NAME
-          value: "campus_connect_rns"
-        - name: DB_USER
-          value: "rns_service_admin"
-        - name: DB_PASSWORD
-          value: "securepassword_rns" 
-        - name: DB_PORT
-          value: "5432"
+        - name: rns-app
+          image: vipul710/rns-service:latest
+          ports:
+            - containerPort: 3002
+          env:
+            # --- DB CONFIG (Offline Notifications) ---
+            - name: DB_HOST
+              value: "postgres-rns-service" # K8s Service Name
+            - name: DB_NAME
+              value: "campus_connect_rns"
+            - name: DB_USER
+              value: "rns_service_admin"
+            - name: DB_PASSWORD
+              value: "securepassword_rns"
+            - name: DB_PORT
+              value: "5432"
 
-        # --- REDIS CONFIG (WS State Cache) ---
-        - name: REDIS_HOST
-          value: "redis-cache.redis.svc.cluster.local" 
-        - name: REDIS_PORT
-          value: "6379"
+            # --- REDIS CONFIG (WS State Cache) ---
+            - name: REDIS_HOST
+              value: "redis-cache.redis.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
 
-        # --- KAFKA CONFIG (Event Ingestion) ---
-        - name: KAFKA_BROKERS 
-          value: "campus-kafka-cluster-kafka-brokers.kafka.svc.cluster.local:9092"
-        
-        # --- USS CONFIG (Follower Lookup) ---
-        - name: USS_BASE_URL
-          value: "http://user-social-service.campus-connect.svc.cluster.local:3000"
+            # --- KAFKA CONFIG (Event Ingestion) ---
+            - name: KAFKA_BROKERS
+              value: "campus-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+            # --- USS CONFIG (Follower Lookup) ---
+            - name: USS_BASE_URL
+              value: "http://user-social-service.campus-connect.svc.cluster.local:3000"
