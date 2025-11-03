@@ -1,4 +1,3 @@
-// NOTE: Requires 'axios' for HTTP calls (npm install axios)
 const axios = require('axios');
 
 // Environment variable pointing to the User & Social Service (USS)

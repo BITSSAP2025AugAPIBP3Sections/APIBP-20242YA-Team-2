@@ -1,4 +1,3 @@
-// NOTE: You would need to install these packages: npm install bcrypt jsonwebtoken
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
