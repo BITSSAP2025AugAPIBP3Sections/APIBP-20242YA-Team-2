@@ -6,6 +6,32 @@ const discoveryController = require("../controllers/DiscoveryController");
 
 // This router handles requests prefixed with /recommendations (as defined in server.js)
 
+// ======================================================================
+// API SCOPE DOCUMENTATION
+// ======================================================================
+/**
+ * @openapi
+ * x-api-scope:
+ *   scope-in:
+ *     - Trending events discovery (global popularity)
+ *     - Personalized event recommendations (user-specific)
+ *     - Real-time recommendation calculation
+ *     - Redis-based caching for performance
+ *     - Kafka-based event data ingestion
+ *   scope-out:
+ *     - Event creation and management (handled by Event Management Service)
+ *     - User profile management (handled by User & Social Service)
+ *     - Event RSVP functionality (handled by Event Management Service)
+ *     - Event search by text/filters (handled by Event Management Service)
+ *     - User notifications (handled by Notification Service)
+ *     - Event analytics and reporting (handled by Analytics Service)
+ *   rationale:
+ *     This service focuses solely on event discovery and personalized recommendations
+ *     using machine learning algorithms and caching strategies. It consumes event data
+ *     via Kafka but does not manage events directly. Search functionality is intentionally
+ *     excluded as it's better handled by the Event Management Service with direct database access.
+ */
+
 /**
  * @openapi
  * components:
@@ -109,6 +135,14 @@ const discoveryController = require("../controllers/DiscoveryController");
  * tags:
  *   - name: Discovery & Recommendations
  *     description: Event discovery and personalized recommendation endpoints
+ *     x-stakeholders:
+ *       primary:
+ *         - Event Browsers (discover trending events)
+ *         - Registered Users (receive personalized recommendations)
+ *       secondary:
+ *         - Anonymous Visitors (browse trending events)
+ *         - Event Organizers (understand event popularity)
+ *         - Data Analysts (analyze recommendation performance)
  */
 
 // ----------------------------------------------------------------------
@@ -128,7 +162,28 @@ const discoveryController = require("../controllers/DiscoveryController");
  *     tags:
  *       - Discovery & Recommendations
  *     summary: Get trending events
- *     description: Retrieves a globally cached list of the most popular events based on recent RSVP activity and engagement metrics
+ *     description: |
+ *       Retrieves a globally cached list of the most popular events based on recent RSVP activity and engagement metrics.
+ *       
+ *       **STAKEHOLDERS:**
+ *       - ✅ Event Browsers (discover popular events)
+ *       - ✅ Anonymous Visitors (browse trending events without login)
+ *       - ✅ Registered Users (see what's popular)
+ *       - ✅ Event Organizers (understand trending patterns)
+ *       - ✅ Marketing Teams (analyze event popularity)
+ *       
+ *       **ACCESS RESTRICTIONS:**
+ *       - ❌ No restrictions - This is a public endpoint
+ *       - ❌ Does NOT require authentication
+ *       - ❌ Does NOT require any special permissions
+ *       
+ *       **BUSINESS RULES:**
+ *       - Data is cached in Redis for performance (refreshed every 30 minutes)
+ *       - Trending score based on recent RSVP count and event recency
+ *       - Returns maximum 20 trending events
+ *       - Events are sorted by trending score (highest first)
+ *       - Only future/active events are included
+ *       - Includes last_updated timestamp showing cache freshness
  *     responses:
  *       200:
  *         description: Successfully retrieved trending events
@@ -192,7 +247,28 @@ router.get("/trending", discoveryController.getTrendingEvents);
  *     tags:
  *       - Discovery & Recommendations
  *     summary: Get personalized recommendations
- *     description: Retrieves a personalized list of recommended events for a specific user based on their interests, RSVP history, and followed organizations. Falls back to trending events if no personalized data is available.
+ *     description: |
+ *       Retrieves a personalized list of recommended events for a specific user based on their interests, 
+ *       RSVP history, and followed organizations. Falls back to trending events if no personalized data is available.
+ *       
+ *       **STAKEHOLDERS:**
+ *       - ✅ Registered Users (receive personalized event recommendations)
+ *       - ✅ Event Browsers (discover events matching their interests)
+ *       - ✅ Frontend Applications (display personalized feeds)
+ *       
+ *       **ACCESS RESTRICTIONS:**
+ *       - ❌ No authentication required at service level (handled by API Gateway)
+ *       - ⚠️  In production, should verify user_id matches authenticated user
+ *       - ⚠️  Anonymous users should use /trending endpoint instead
+ *       
+ *       **BUSINESS RULES:**
+ *       - Recommendations based on user's RSVP history and followed organizations
+ *       - Uses collaborative filtering and content-based algorithms
+ *       - Falls back to trending events if user has no history (cold start problem)
+ *       - Results are cached per user for 15 minutes
+ *       - Returns maximum 15 personalized recommendations
+ *       - Excludes events user already RSVP'd to
+ *       - Prioritizes events from followed organizations
  *     parameters:
  *       - in: path
  *         name: user_id

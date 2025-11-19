@@ -15,6 +15,35 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 
+// ======================================================================
+// API SCOPE DOCUMENTATION
+// ======================================================================
+/**
+ * @openapi
+ * x-api-scope:
+ *   scope-in:
+ *     - Real-time notification delivery via WebSocket
+ *     - Offline notification storage and retrieval
+ *     - Notification read/unread status management
+ *     - Multi-channel notification support (WebSocket, HTTP polling)
+ *     - Kafka-based event consumption for notifications
+ *     - Redis-based user session management
+ *   scope-out:
+ *     - Email notifications (handled by Email Service)
+ *     - SMS notifications (handled by SMS Service)
+ *     - Push notifications to mobile devices (handled by Mobile Push Service)
+ *     - Notification preferences management (handled by User Service)
+ *     - Notification analytics and reporting (handled by Analytics Service)
+ *     - Event creation and management (handled by Event Management Service)
+ *     - User authentication (handled by User & Social Service)
+ *   rationale:
+ *     This service focuses solely on real-time in-app notification delivery and
+ *     offline notification storage. Email, SMS, and mobile push notifications are
+ *     intentionally excluded as they require different infrastructure and delivery
+ *     mechanisms. User preferences and analytics are handled by dedicated services
+ *     to maintain clear separation of concerns.
+ */
+
 // Swagger configuration
 const swaggerOptions = {
   definition: {
@@ -22,8 +51,72 @@ const swaggerOptions = {
     info: {
       title: "Real-time Notification Service API",
       version: "1.0.0",
-      description: "API for real-time notifications"
+      description: `API for real-time in-app notifications via WebSocket and HTTP
+
+---
+
+## 📋 API SCOPE
+
+### ✅ SCOPE-IN (What this API covers):
+- Real-time notification delivery via WebSocket
+- Offline notification storage and retrieval
+- Notification read/unread status management
+- Multi-channel notification support (WebSocket, HTTP polling)
+- Kafka-based event consumption for notifications
+- Redis-based user session management
+
+### ❌ SCOPE-OUT (What this API does NOT cover):
+- **Email notifications** → Handled by Email Service
+- **SMS notifications** → Handled by SMS Service
+- **Push notifications to mobile devices** → Handled by Mobile Push Service
+- **Notification preferences management** → Handled by User Service
+- **Notification analytics and reporting** → Handled by Analytics Service
+- **Event creation and management** → Handled by Event Management Service
+- **User authentication** → Handled by User & Social Service
+
+### 📝 RATIONALE:
+This service focuses solely on real-time in-app notification delivery and offline notification storage. Email, SMS, and mobile push notifications are intentionally excluded as they require different infrastructure and delivery mechanisms. User preferences and analytics are handled by dedicated services to maintain clear separation of concerns.
+
+---
+`
     },
+    tags: [
+      {
+        name: "Notifications",
+        description: "Notification retrieval and management",
+        "x-stakeholders": {
+          primary: [
+            "Notification Recipients (receive and view notifications)",
+            "Event Organizers (receive event-related notifications)",
+            "Regular Users (receive social and event notifications)"
+          ],
+          secondary: [
+            "Frontend Applications (display notifications to users)",
+            "System Administrators (monitor notification delivery)"
+          ]
+        }
+      },
+      {
+        name: "WebSocket",
+        description: "Real-time WebSocket connection for live notifications",
+        "x-stakeholders": {
+          primary: [
+            "Active Users (receive real-time notifications)",
+            "Frontend Applications (maintain WebSocket connections)"
+          ]
+        }
+      },
+      {
+        name: "Health",
+        description: "Service health monitoring",
+        "x-stakeholders": {
+          primary: [
+            "System Administrators (monitor service health)",
+            "DevOps Teams (service monitoring and alerting)"
+          ]
+        }
+      }
+    ],
     servers: [
       {
         url: `http://localhost:${PORT}`
@@ -165,7 +258,29 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  * /notifications/{user_id}:
  *   get:
  *     summary: Get offline notifications for a user
- *     description: Retrieves all unread offline notifications for a specific user and marks them as read
+ *     description: |
+ *       Retrieves all unread offline notifications for a specific user and marks them as read.
+ *       Used when user reconnects or opens the app to catch up on missed notifications.
+ *       
+ *       **STAKEHOLDERS:**
+ *       - ✅ Notification Recipients (retrieve their missed notifications)
+ *       - ✅ Event Organizers (check notifications about their events)
+ *       - ✅ Regular Users (catch up on notifications while offline)
+ *       - ✅ Frontend Applications (sync notifications on app open)
+ *       
+ *       **ACCESS RESTRICTIONS:**
+ *       - ❌ Anonymous Users (must be authenticated)
+ *       - ❌ Other Users (can only retrieve their own notifications)
+ *       - ❌ Users accessing other users' notifications (user_id must match token)
+ *       - ⚠️  In production, verify user_id matches authenticated user from JWT
+ *       
+ *       **BUSINESS RULES:**
+ *       - Returns only unread notifications that were delivered while user was offline
+ *       - Automatically marks retrieved notifications as read
+ *       - Notifications are sorted by creation date (newest first)
+ *       - Only returns notifications with is_delivered=true and is_read=false
+ *       - Empty array returned if no unread notifications exist
+ *       - Notifications older than 30 days may be archived (configurable)
  *     tags: [Notifications]
  *     security:
  *       - bearerAuth: []
@@ -258,7 +373,26 @@ app.get("/notifications/:user_id", async (req, res) => {
  * /health:
  *   get:
  *     summary: Health check endpoint
- *     description: Returns the health status of the notification service and its dependencies
+ *     description: |
+ *       Returns the health status of the notification service and its dependencies (Redis, PostgreSQL, Kafka).
+ *       
+ *       **STAKEHOLDERS:**
+ *       - ✅ System Administrators (monitor service health)
+ *       - ✅ DevOps Teams (automated health checks and alerting)
+ *       - ✅ Monitoring Systems (Prometheus, Datadog, etc.)
+ *       - ✅ Load Balancers (health check for routing decisions)
+ *       
+ *       **ACCESS RESTRICTIONS:**
+ *       - ❌ No restrictions - This is a public endpoint
+ *       - ❌ Does NOT require authentication
+ *       - ⚠️  Should be accessible from internal network only (configure firewall)
+ *       
+ *       **BUSINESS RULES:**
+ *       - Returns 200 OK if service is healthy
+ *       - Includes Redis connection status
+ *       - Should be called periodically by monitoring systems
+ *       - Response time should be < 100ms for healthy service
+ *       - Used by load balancers for traffic routing
  *     tags: [Health]
  *     responses:
  *       200:
@@ -295,32 +429,28 @@ app.get("/health", (req, res) => {
  *     description: |
  *       Establishes a WebSocket connection for real-time notifications.
  *       
- *       **Connection URL:** `ws://localhost:3002/ws?token=YOUR_JWT_TOKEN`
+ *       **STAKEHOLDERS:**
+ *       - ✅ Active Users (receive real-time notifications while online)
+ *       - ✅ Event Organizers (get instant updates about their events)
+ *       - ✅ Regular Users (receive social and event notifications in real-time)
+ *       - ✅ Frontend Applications (maintain persistent WebSocket connections)
  *       
- *       **Authentication:** JWT token must be provided as a query parameter
+ *       **ACCESS RESTRICTIONS:**
+ *       - ❌ Anonymous Users (must provide valid JWT token)
+ *       - ❌ Users with expired tokens (token must be valid and not expired)
+ *       - ❌ Users with invalid tokens (connection will be closed with code 1008)
+ *       - ❌ Suspended/Banned Users (account must be active)
+ *       - ⚠️  Token must be provided as query parameter: ?token=YOUR_JWT_TOKEN
  *       
- *       **Message Types Received:**
- *       - `event_created` - New event notifications
- *       - `event_updated` - Event update notifications  
- *       - `event_deleted` - Event deletion notifications
- *       - `rsvp_added` - New RSVP notifications
- *       - `rsvp_cancelled` - RSVP cancellation notifications
- *       - `user_followed` - New follower notifications
- *       - `user_unfollowed` - Unfollow notifications
- *       
- *       **Message Format:**
- *       ```json
- *       {
- *         "type": "event_created",
- *         "title": "New Event Created",
- *         "message": "A new event 'Tech Conference 2024' has been created",
- *         "payload": {
- *           "event_id": 1,
- *           "host_id": 456,
- *           "timestamp": "2024-01-15T10:30:00Z"
- *         }
- *       }
- *       ```
+ *       **BUSINESS RULES:**
+ *       - One WebSocket connection per user (new connection closes old one)
+ *       - Connection is maintained until user disconnects or token expires
+ *       - Automatic reconnection should be handled by client
+ *       - Heartbeat/ping-pong for connection health (every 30 seconds)
+ *       - Messages are delivered in real-time (< 100ms latency)
+ *       - If user is offline, notifications are stored in PostgreSQL
+ *       - Connection closes automatically after 1 hour of inactivity
+ *  
  *     tags: [WebSocket]
  *     parameters:
  *       - in: query

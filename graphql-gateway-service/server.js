@@ -219,10 +219,38 @@ const swaggerSpec = swaggerJsdoc({
     info: {
       title: "GraphQL Gateway Service API",
       version: "1.0.0",
-      description:
-        "Gateway microservice exposing a GraphQL endpoint at /graphql. This OpenAPI spec documents operational REST endpoints (e.g. health).",
+      description: "Gateway microservice exposing a GraphQL endpoint at /graphql. This OpenAPI spec documents operational REST endpoints (e.g. health).",
     },
     servers: [{ url: "http://localhost:3004" }],
+    tags: [
+      {
+        name: "GraphQL",
+        description: "GraphQL query endpoint for unified data access",
+        "x-stakeholders": {
+          primary: [
+            "Frontend Applications (React, React Native, Web apps)",
+            "Mobile Applications (iOS, Android)",
+            "Third-party Integrations (external apps)"
+          ],
+          secondary: [
+            "Event Browsers (query events and user data)",
+            "Registered Users (access personalized data)",
+            "Developers (test and explore API)"
+          ]
+        }
+      },
+      {
+        name: "Health",
+        description: "Service health monitoring",
+        "x-stakeholders": {
+          primary: [
+            "System Administrators (monitor service health)",
+            "DevOps Teams (automated health checks)",
+            "Monitoring Systems (Prometheus, Datadog, etc.)"
+          ]
+        }
+      }
+    ],
   },
   apis: ["./server.js"],
 });
@@ -323,17 +351,28 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *   post:
  *     summary: Execute a GraphQL operation
  *     description: |
- *       Send a GraphQL query or mutation. The GraphQL schema includes types `User`, `Event`, and root queries `event`, `user`, `trendingEvents`, `searchEvents`.
- *
- *       Example queries:
- *
- *       - Get event by ID:
- *         
- *         query GetEvent($id: ID!) {\n  event(id: $id) { id title description host { id username } }\n}
- *
- *       - Get user with recommendations:
- *         
- *         query GetUser($id: ID!) {\n  user(id: $id) { id username isOrganization recommendations { id title } }\n}
+ *       Send a GraphQL query to fetch aggregated data from multiple microservices.
+ *       
+ *       **STAKEHOLDERS:**
+ *       - ✅ Frontend Applications (React, React Native, Web apps)
+ *       - ✅ Mobile Applications (iOS, Android)
+ *       - ✅ Third-party Integrations (external apps consuming our API)
+ *       - ✅ Event Browsers (query events and user data)
+ *       - ✅ Registered Users (access personalized data)
+ *       
+ *       **ACCESS RESTRICTIONS:**
+ *       - ❌ No authentication at gateway level (handled by downstream services)
+ *       - ⚠️  Some nested fields require authentication (e.g., user.recommendations)
+ *       - ⚠️  Write operations (mutations) are NOT supported - use REST APIs instead
+ *       - ❌ Direct database queries (all data fetched via microservices)
+ *       
+ *       **BUSINESS RULES:**
+ *       - Gateway aggregates data from USS, EMS, and DRS microservices
+ *       - Queries are read-only (no mutations supported)
+ *       - Failed downstream service calls return null for that field
+ *       - Maximum query depth: 5 levels (prevents circular queries)
+ *       - Query timeout: 30 seconds
+ *       - Supports batching and caching for performance
  *     tags:
  *       - GraphQL
  *     requestBody:
@@ -425,7 +464,30 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  * /health:
  *   get:
  *     summary: Health check
- *     description: Returns service health status.
+ *     description: |
+ *       Returns the health status of the GraphQL Gateway Service.
+ *       
+ *       **STAKEHOLDERS:**
+ *       - ✅ System Administrators (monitor gateway health)
+ *       - ✅ DevOps Teams (automated health checks and alerting)
+ *       - ✅ Monitoring Systems (Prometheus, Datadog, etc.)
+ *       - ✅ Load Balancers (health check for routing decisions)
+ *       - ✅ Kubernetes/Container Orchestration (liveness/readiness probes)
+ *       
+ *       **ACCESS RESTRICTIONS:**
+ *       - ❌ No restrictions - This is a public endpoint
+ *       - ❌ Does NOT require authentication
+ *       - ⚠️  Should be accessible from internal network only (configure firewall)
+ *       
+ *       **BUSINESS RULES:**
+ *       - Returns 200 OK if gateway service is healthy
+ *       - Does NOT check downstream service health (use service-specific health checks)
+ *       - Should be called periodically by monitoring systems
+ *       - Response time should be < 50ms for healthy service
+ *       - Used by load balancers for traffic routing
+ *       - Used by Kubernetes for pod health checks
+ *     tags:
+ *       - Health
  *     responses:
  *       200:
  *         description: Service is healthy
