@@ -16,7 +16,32 @@ const swaggerSpec = swaggerJsdoc({
     info: {
       title: 'User & Social Service API',
       version: '1.0.0',
-      description: 'API documentation for User & Social Service'
+      description: `API documentation for User & Social Service
+
+---
+
+## 📋 API SCOPE
+
+### ✅ SCOPE-IN (What this API covers):
+- User registration and authentication (signup/login)
+- User profile management (view public profiles)
+- Social connections (follow/unfollow users and organizations)
+- User search and discovery
+- Follower/Following list management
+
+### ❌ SCOPE-OUT (What this API does NOT cover):
+- **User notifications** → Handled by Notification Service
+- **User event history** → Handled by Event Management Service
+- **User recommendations** → Handled by Discovery & Recommendation Service
+- **Password reset emails** → Handled by Notification Service
+- **User analytics and reporting** → Handled by Analytics Service
+- **Profile photo storage** → Handled by Media/Storage Service
+
+### 📝 RATIONALE:
+This service focuses on user identity, authentication, and social graph management. Event-related features, notifications, and media storage are intentionally excluded to maintain clear service boundaries and follow microservices architecture principles.
+
+---
+`
     },
     servers: [
       { url: 'http://localhost:3000' }

@@ -23,7 +23,32 @@ const swaggerSpec = swaggerJsdoc({
     info: {
       title: "Discovery & Recommendation Service API",
       version: "1.0.0",
-      description: "API documentation for Discovery & Recommendation Service - provides trending events and personalized recommendations",
+      description: `API documentation for Discovery & Recommendation Service - provides trending events and personalized recommendations
+
+---
+
+## 📋 API SCOPE
+
+### ✅ SCOPE-IN (What this API covers):
+- Trending events discovery (global popularity)
+- Personalized event recommendations (user-specific)
+- Real-time recommendation calculation
+- Redis-based caching for performance
+- Kafka-based event data ingestion
+
+### ❌ SCOPE-OUT (What this API does NOT cover):
+- **Event creation and management** → Handled by Event Management Service
+- **User profile management** → Handled by User & Social Service
+- **Event RSVP functionality** → Handled by Event Management Service
+- **Event search by text/filters** → Handled by Event Management Service
+- **User notifications** → Handled by Notification Service
+- **Event analytics and reporting** → Handled by Analytics Service
+
+### 📝 RATIONALE:
+This service focuses solely on event discovery and personalized recommendations using machine learning algorithms and caching strategies. It consumes event data via Kafka but does not manage events directly. Search functionality is intentionally excluded as it's better handled by the Event Management Service with direct database access.
+
+---
+`,
     },
     servers: [{ url: "http://localhost:3003" }],
     components: {
